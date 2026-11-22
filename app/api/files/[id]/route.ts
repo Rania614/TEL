@@ -1,6 +1,5 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import { read, UPLOAD_DIR } from "@/lib/store";
+import { read } from "@/lib/store";
+import { blobUrlOf, readLocalBytes } from "@/lib/files";
 import { handle, HttpError, requireApiUser } from "@/lib/auth";
 import { canReadFile } from "@/lib/access";
 
@@ -12,7 +11,10 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: stri
   const db = await read();
   const f = db.files.find((x) => x.id === id);
   if (!f || !canReadFile(db, user, id)) throw new HttpError(404, "File not found.");
-  const buf = await fs.readFile(path.join(UPLOAD_DIR, f.storageKey)).catch(() => null);
+  // Cloud files: redirect to the (unguessable) blob URL only after the access check above.
+  const blob = blobUrlOf(f.storageKey);
+  if (blob) return new Response(null, { status: 302, headers: { Location: blob, "Cache-Control": "private, no-store" } });
+  const buf = await readLocalBytes(f.storageKey);
   if (!buf) throw new HttpError(404, "The file is missing from storage.");
 
   const headers: Record<string, string> = {

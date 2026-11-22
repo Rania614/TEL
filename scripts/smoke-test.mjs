@@ -24,11 +24,22 @@ function client() {
   };
 }
 
-const db = () => JSON.parse(readFileSync("storage/db.json", "utf8"));
+// Reads the app's data from wherever the server keeps it (Postgres when DATABASE_URL is set, else the JSON file).
+const PG_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+let pgClient = null;
+async function db() {
+  if (!PG_URL) return JSON.parse(readFileSync("storage/db.json", "utf8"));
+  if (!pgClient) {
+    const { default: pg } = await import("pg");
+    pgClient = new pg.Client({ connectionString: PG_URL, ssl: /localhost|127\.0\.0\.1/.test(PG_URL) ? false : { rejectUnauthorized: false } });
+    await pgClient.connect();
+  }
+  return (await pgClient.query("SELECT doc FROM app_state WHERE id = 1")).rows[0].doc;
+}
 
 const anon = client();
 await anon("/enter");
-const d0 = db();
+const d0 = await db();
 const user = (u) => d0.users.find((x) => x.username === u);
 const rania = client(), zeinab = client(), teacher = client();
 
@@ -76,7 +87,7 @@ const fb = await teacher(`/api/submissions/${s2.body.submission.id}/feedback`, {
   text: "Lovely story!", score: 88, rating: 5, decision: "REVIEWED",
   corrections: [{ original: "I sing along the song", correction: "I sing along to the song", note: "sing along TO" }] } });
 ok(fb.status === 200 && fb.body.submissionId === s2.body.submission.id, "feedback is attached to the exact submission (v2)");
-const d1 = db();
+const d1 = await db();
 const ra = d1.achievements.filter((a) => a.studentId === user("rania").id).map((a) => a.key);
 ok(ra.includes(`reviewed:${task.id}`) && ra.some((k) => k.startsWith("session:")), "review grants the reviewed + session-complete rewards");
 ok(!d1.achievements.some((a) => a.studentId === user("zeinab").id), "Zeinab's rewards are untouched");
@@ -95,7 +106,8 @@ const ne = await teacher("/api/teacher/expressions", { method: "POST", json: { e
 ok(ne.status === 201 && ne.body.sessionIds[0] === ns.body.id, "expression is linked to its session");
 ok((await zeinab(`/library/sessions/${ns.body.id}`)).status === 404, "unpublished session is hidden from students");
 ok((await teacher(`/api/teacher/sessions/${ns.body.id}`, { method: "DELETE" })).status === 200, "teacher deletes the test session");
-ok(!db().tasks.some((t) => t.sessionId === ns.body.id), "deleting a session cascades to its tasks");
+ok(!(await db()).tasks.some((t) => t.sessionId === ns.body.id), "deleting a session cascades to its tasks");
 
+if (pgClient) await pgClient.end();
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);

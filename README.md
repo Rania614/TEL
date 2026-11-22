@@ -120,10 +120,33 @@ storage/             db.json + uploads/ (created at runtime, git-ignored)
   - Teacher APIs return 403 to students.
   - Files are served only to their owner, to Rabeha, or as course material or as feedback on the student's own work.
 
+## Deploy on Vercel
+
+Vercel can't write files to its disk, so in the cloud the app uses **Postgres** (data) and **Vercel Blob** (uploads). It switches automatically when these settings exist; locally it keeps using `storage/`.
+
+1. **Push the code** to GitHub and import the repo in Vercel (Framework: Next.js, no other settings).
+2. **Storage tab → Create Database → Neon (Postgres) → Connect** to the project. This adds `DATABASE_URL`/`POSTGRES_URL`.
+3. **Storage tab → Create → Blob → Connect** to the project. This adds `BLOB_READ_WRITE_TOKEN`.
+4. **Settings → Environment Variables:** add `PROFILE_MOBILES` (see `.env.example`).
+5. **Redeploy.** On first visit the app creates its table and seeds the five profiles and the singer session.
+6. **Optional: copy your local library to the cloud.** This includes Level 1, student work and uploaded files.
+   ```bash
+   npx vercel link          # once, choose the project
+   npx vercel env pull .env.local
+   node scripts/push-to-cloud.mjs          # add --force to replace what's already in the cloud
+   ```
+   Then remove `DATABASE_URL`/`POSTGRES_URL` and `BLOB_READ_WRITE_TOKEN` from `.env.local` if you want your local app to keep using local files. Otherwise your local app will also work on the cloud data.
+
+How it works:
+- The whole library is one JSONB row (`app_state`), changed inside a transaction with `SELECT … FOR UPDATE`. A test of 48 simultaneous saves lost nothing.
+- Uploads go straight from the browser to Blob, because Vercel functions reject request bodies over 4.5 MB. `/api/files/[id]` checks permissions, then redirects to the file's unguessable Blob URL. Blob URLs are "public but unlisted": anyone who is given the exact link can open it.
+- Smart Import uploads the course document through the app itself, so the document must be under ~4 MB (Level 1.docx is 39 KB).
+- Recording with the microphone works on phones because Vercel serves HTTPS.
+
 ## Known limitations (be honest with the class)
 
 1. **Demo access is not authentication.** Anyone who knows a username and mobile number can enter as that person. Don't put anything private in the app, and don't expose it to the public internet as-is.
-2. **Recording on phones needs HTTPS.** Browsers only allow the microphone on `https://` or `localhost`. A phone opening `http://192.168.x.x:3000` will get a clear message and can still **upload** a voice-memo file. To record in-browser on phones, deploy behind HTTPS (see below) or use a tunnel such as Cloudflare Tunnel.
+2. **Recording on phones needs HTTPS** (automatic on Vercel). Browsers only allow the microphone on `https://` or `localhost`. A phone opening `http://192.168.x.x:3000` will get a clear message and can still **upload** a voice-memo file. To record in-browser on phones, deploy behind HTTPS (see below) or use a tunnel such as Cloudflare Tunnel.
 3. Built for one class on one server. The JSON store is fine for 5 people. It is not designed for hundreds of concurrent writers.
 4. No push notifications: the feedback badge updates when the student opens or refreshes the app.
 5. YouTube titles are placeholders ("Session 1 — Video 1/2"). Rabeha can rename them in the session editor.
