@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Audio } from "./Media";
+import { useUploadProgress } from "./useUploadProgress";
 import { MagicMicrophone, StudioBackdrop } from "./art/Scenes";
 
 type State = "idle" | "requesting" | "recording" | "paused" | "recorded" | "error";
@@ -27,6 +28,7 @@ export function AudioRecorder({ onSave, saving, compact }: { onSave: (b: Blob, n
   const [elapsed, setElapsed] = useState(0);
   const [url, setUrl] = useState("");
   const rec = useRef<MediaRecorder | null>(null);
+  const progress = useUploadProgress(!!saving);
   const chunks = useRef<Blob[]>([]);
   const blob = useRef<Blob | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -173,7 +175,7 @@ export function AudioRecorder({ onSave, saving, compact }: { onSave: (b: Blob, n
         {state === "paused" && <button type="button" className="btn dark" onClick={resume}>▶ Resume</button>}
         {live && <button type="button" className="btn" onClick={stop}>■ Stop</button>}
         {state === "recorded" && <>
-          <button type="button" className="btn" onClick={keep} disabled={saving}>{saving ? <span className="spinner" /> : "✓"} Keep this recording</button>
+          <button type="button" className="btn" onClick={keep} disabled={saving}>{saving ? <><span className="spinner" /> {progress || "Saving…"}</> : "✓ Keep this recording"}</button>
           <button type="button" className="btn danger" onClick={discard} disabled={saving}>✕ Delete &amp; re-record</button>
         </>}
       </div>

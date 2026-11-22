@@ -25,9 +25,23 @@ export function youtubeId(url: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * One fixed time zone for every date, on the server and in the browser alike.
+ * (Vercel's servers run on UTC; without this, times were 2 hours off and React
+ * complained that the server HTML didn't match the browser — error #418.)
+ */
+export const TIME_ZONE = process.env.NEXT_PUBLIC_TIME_ZONE || "Africa/Cairo";
 export function fmtDate(iso: string | null | undefined) {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: TIME_ZONE });
+}
+export function fmtDay(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: TIME_ZONE });
+}
+export function fmtClock(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TIME_ZONE });
 }
 export function fmtSize(n: number) {
   return n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`;

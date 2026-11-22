@@ -4,7 +4,7 @@ import { read } from "@/lib/store";
 import { getLang, requirePageUser } from "@/lib/auth";
 import { t } from "@/lib/i18n";
 import { taskStatus } from "@/lib/progress";
-import { SKILL_ICON, SKILL_LABEL, DIFFICULTY_LABEL } from "@/lib/labels";
+import { SKILL_ICON, SKILL_LABEL, DIFFICULTY_LABEL, fmtDay } from "@/lib/labels";
 import { Crumbs, StatusPill } from "@/components/Shell";
 import type { TaskStatus } from "@/lib/types";
 
@@ -49,7 +49,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
                     <span className="muted" style={{ fontSize: ".8rem" }}>{db.levels.find((l) => l.id === s.levelId)?.title} · Session {s.number} · {s.title}</span>
                     <h3>{SKILL_ICON[tk.skill]} {tk.title}</h3>
                     <div className="meta"><StatusPill status={status} lang={lang} />{tk.difficulty && <span>{DIFFICULTY_LABEL[tk.difficulty]}</span>}{tk.durationMin > 0 && <span>~{tk.durationMin} min</span>}
-                      {tk.dueDate && <span>due {new Date(tk.dueDate).toLocaleDateString("en-GB")}</span>}</div>
+                      {tk.dueDate && <span>due {fmtDay(tk.dueDate)}</span>}</div>
                   </Link>
                 ))}
               </div>

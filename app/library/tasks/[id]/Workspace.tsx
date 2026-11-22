@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { Draft, FileAsset, Task, TaskStatus, Achievement, Submission } from "@/lib/types";
-import { youtubeId } from "@/lib/labels";
+import { fmtClock, youtubeId } from "@/lib/labels";
 import { api, celebrate, uploadFile } from "@/components/client-api";
 import { AudioRecorder } from "@/components/AudioRecorder";
 import { FilePicker } from "@/components/FilePicker";
@@ -174,7 +174,7 @@ function Block({ title, children }: { title: ReactNode; children: ReactNode }) {
 }
 
 function SaveBadge({ state, savedAt }: { state: string; savedAt: string | null }) {
-  const label = state === "saving" ? "Saving…" : state === "error" ? "Not saved" : savedAt ? `Draft saved ${new Date(savedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "No draft yet";
+  const label = state === "saving" ? "Saving…" : state === "error" ? "Not saved" : savedAt ? `Draft saved ${fmtClock(savedAt)}` : "No draft yet";
   return <span className="chip" aria-live="polite">{state === "saving" && <span className="spinner" style={{ width: 12, height: 12 }} />}{label}</span>;
 }
 
