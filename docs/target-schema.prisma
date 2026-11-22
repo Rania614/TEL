@@ -1,0 +1,280 @@
+// The English Library — TARGET production schema (Prisma + PostgreSQL)
+//
+// The MVP runs on the JSON demo store in lib/store.ts, whose types
+// (lib/types.ts) mirror these models one-to-one. To migrate:
+//   1. npm i prisma @prisma/client  &&  copy this file to prisma/schema.prisma
+//   2. set provider = "postgresql" and DATABASE_URL
+//   3. re-implement read()/mutate() call sites with Prisma queries
+//   4. import storage/db.json with a one-off script (ids are already strings)
+// String "enum" columns can become real Prisma enums on PostgreSQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One row per person. role: "STUDENT" | "TEACHER".
+/// Demo access matches username + mobile. When real auth arrives, add an
+/// Account/Credential table and keep this table as the identity.
+model User {
+  id        String   @id @default(cuid())
+  role      String
+  name      String
+  nameAr    String
+  username  String   @unique
+  mobile    String   @unique
+  avatar    String
+  createdAt DateTime @default(now())
+
+  submissions  Submission[]
+  drafts       Draft[]
+  feedbackGiven Feedback[]   @relation("FeedbackTeacher")
+  achievements Achievement[]
+  entryStates  StudentEntryState[]
+  files        FileAsset[]
+}
+
+model Level {
+  id        String    @id @default(cuid())
+  number    Int       @unique
+  title     String
+  createdAt DateTime  @default(now())
+  sessions  Session[]
+}
+
+/// The uploaded course document a set of sessions/tasks came from.
+model SourceDocument {
+  id            String   @id @default(cuid())
+  fileId        String
+  originalName  String
+  sha256        String   @unique // blocks importing the same file twice
+  importDraftId String   @unique
+  importedAt    DateTime @default(now())
+  importedBy    String
+  stats         String   // JSON {sessions,tasks,resources,expressions}
+}
+
+/// Editable preview produced by Smart Session Import (parsed structure as JSON).
+model ImportDraft {
+  id           String    @id @default(cuid())
+  fileId       String?
+  originalName String
+  sha256       String
+  source       String    // FILE | PASTE
+  defaultLevel Int
+  status       String    @default("DRAFT") // DRAFT | PUBLISHED
+  data         String    // JSON ParsedImport (lib/import/types.ts)
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  publishedAt  DateTime?
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  levelId     String
+  level       Level    @relation(fields: [levelId], references: [id])
+  number      Int
+  lessonTitle String   @default("")
+  sourceDocumentId String?
+  title       String
+  description String
+  objectives  String   // JSON string[]
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sections    SessionSection[]
+  materials   LearningMaterial[]
+  tasks       Task[]
+  vocabulary  VocabularyEntry[]
+  expressions ExpressionEntry[]
+  @@unique([levelId, number])
+}
+
+/// skill: SPEAKING | READING | LISTENING | WRITING | GRAMMAR | VOCABULARY |
+///        PHONICS | IDIOMS | PHRASAL_VERBS | GAMES_VIDEOS
+model SessionSection {
+  id        String  @id @default(cuid())
+  sessionId String
+  skill     String
+  title     String
+  body      String  @default("") // lightweight markdown
+  order     Int     @default(0)
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  materials LearningMaterial[]
+}
+
+/// type: YOUTUBE | LINK | AUDIO | PDF | IMAGE | DOCUMENT
+model LearningMaterial {
+  id          String   @id @default(cuid())
+  sessionId   String?
+  sectionId   String?
+  taskId      String?   // optional link to one task
+  skill       String?   // optional skill/tag tab; null = general session material
+  type        String
+  title       String
+  description String   @default("")
+  url         String?
+  fileId      String?
+  createdAt   DateTime @default(now())
+  session     Session?        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  section     SessionSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  file        FileAsset?      @relation(fields: [fileId], references: [id])
+}
+
+/// skill (primary): SPEAKING | LISTENING | READING | WRITING
+/// tags (secondary, JSON array): GRAMMAR | VOCABULARY | PHONICS | IDIOMS | PHRASAL_VERBS | COLLOCATIONS | GAMES | VIDEOS | EXTRA
+/// submissionTypes (JSON array): AUDIO | TEXT | IMAGE | FILE
+/// parts (JSON array of {id, kind, title, body}) — readable sections; instructions keep the original wording
+/// difficulty: EASY | MEDIUM | CHALLENGING | null
+model Task {
+  id               String    @id @default(cuid())
+  sessionId        String
+  title            String
+  instructions     String    // lightweight markdown, preserved verbatim
+  skill            String
+  tags             String    @default("[]")
+  submissionTypes  String    @default("[\"TEXT\"]")
+  parts            String    @default("[]")
+  requiredExpressions String @default("[]")
+  sourceDocumentId String?
+  classificationNote String  @default("")
+  difficulty       String?
+  durationMin      Int       @default(0) // 0 = not stated
+  dueDate          DateTime?
+  questions        String    @default("[]") // JSON [{id,prompt}] for listening/reading
+  readingText      String    @default("")
+  highlightWords   String    @default("[]") // JSON string[]
+  mediaUrl         String?   // listening audio/video URL
+  attachmentIds    String    @default("[]") // JSON FileAsset ids from the teacher
+  order            Int       @default(0)
+  createdAt        DateTime  @default(now())
+  session          Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  submissions      Submission[]
+  drafts           Draft[]
+}
+
+/// One working copy per student per task. Never overwritten by submitting.
+model Draft {
+  id        String   @id @default(cuid())
+  taskId    String
+  studentId String
+  text      String   @default("")
+  notes     String   @default("")
+  answers   String   @default("{}") // JSON {questionId: answer}
+  fileIds   String   @default("[]") // JSON FileAsset ids not yet submitted
+  updatedAt DateTime @updatedAt
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([taskId, studentId])
+}
+
+/// Immutable snapshot of what the student handed in. version increments.
+/// status: SUBMITTED | NEEDS_REVISION | REVIEWED
+model Submission {
+  id          String   @id @default(cuid())
+  taskId      String
+  studentId   String
+  version     Int
+  status      String   @default("SUBMITTED")
+  text        String   @default("")
+  answers     String   @default("{}")
+  notes       String   @default("")
+  createdAt   DateTime @default(now())
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  files       FileAsset[] @relation("SubmissionFiles")
+  feedback    Feedback[]
+  @@unique([taskId, studentId, version])
+}
+
+/// decision: REVIEWED | NEEDS_REVISION | COMMENT
+model Feedback {
+  id           String   @id @default(cuid())
+  submissionId String
+  teacherId    String
+  text         String   @default("")
+  audioFileId  String?
+  score        Int?
+  rating       Int?     // 1-5
+  corrections  String   @default("[]") // JSON [{original, correction, note}]
+  decision     String   @default("COMMENT")
+  seenAt       DateTime?
+  createdAt    DateTime @default(now())
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  teacher      User       @relation("FeedbackTeacher", fields: [teacherId], references: [id])
+  audioFile    FileAsset? @relation("FeedbackAudio", fields: [audioFileId], references: [id])
+}
+
+/// Metadata only — bytes live in storage/uploads (swap for S3/R2 later).
+model FileAsset {
+  id           String   @id @default(cuid())
+  ownerId      String
+  originalName String
+  mime         String
+  size         Int
+  storageKey   String   @unique
+  kind         String   // AUDIO | IMAGE | PDF | OTHER
+  submissionId String?
+  createdAt    DateTime @default(now())
+  owner        User        @relation(fields: [ownerId], references: [id])
+  submission   Submission? @relation("SubmissionFiles", fields: [submissionId], references: [id], onDelete: SetNull)
+  feedbackUses Feedback[]  @relation("FeedbackAudio")
+  materials    LearningMaterial[]
+}
+
+model VocabularyEntry {
+  id            String    @id @default(cuid())
+  word          String
+  meaning       String
+  example       String    @default("")
+  pronunciation String    @default("")
+  relatedWords  String    @default("[]") // JSON string[]
+  createdAt     DateTime  @default(now())
+  sessions      Session[]
+}
+
+/// category: IDIOM | PHRASAL_VERB | COLLOCATION | COMPOUND_NOUN | EXPRESSION (uncategorised)
+model ExpressionEntry {
+  id         String    @id @default(cuid())
+  expression String
+  meaning    String    @default("") // may be empty: never invented on import
+  example    String    @default("")
+  category   String
+  createdAt  DateTime  @default(now())
+  sessions   Session[]
+}
+
+/// Per-student state for vocabulary & expressions (learned, favourite, notes).
+/// entryType: VOCAB | EXPRESSION
+model StudentEntryState {
+  id        String  @id @default(cuid())
+  studentId String
+  entryType String
+  entryId   String
+  learned   Boolean @default(false)
+  favorite  Boolean @default(false)
+  note      String  @default("")
+  student   User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([studentId, entryType, entryId])
+}
+
+/// A reward earned once. key is unique per student, e.g. "submit:<taskId>",
+/// "reviewed:<taskId>", "session:<sessionId>", "milestone:first-recording".
+model Achievement {
+  id        String   @id @default(cuid())
+  studentId String
+  key       String
+  title     String
+  points    Int
+  icon      String   @default("✦")
+  seenAt    DateTime?
+  createdAt DateTime @default(now())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([studentId, key])
+}

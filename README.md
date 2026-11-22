@@ -4,7 +4,7 @@ A cozy, library-themed learning space for **Rabeha's** English course and her fo
 
 ## Run it
 
-Needs Node.js 20 or newer.
+Needs Node.js 20 or newer. Dependencies: Next.js, React, `mammoth` (DOCX) and `unpdf` (PDF).
 
 ```bash
 npm install
@@ -15,15 +15,15 @@ npm run build && npm start      # listens on all network interfaces, port 3000
 
 There is no database to install. On the first request the app creates `storage/db.json` and seeds the five profiles plus Session 1.
 
-| Profile | Username | Mobile (demo) |
-|---|---|---|
-| Rabeha (teacher) | `rabeha` | `01000000000` |
-| Rania | `rania` | `01000000001` |
-| Zeinab | `zeinab` | `01000000002` |
-| Mariam | `mariam` | `01000000003` |
-| Fatma | `fatma` | `01000000004` |
+| Profile | Username |
+|---|---|
+| Rabeha (teacher) | `rabeha` |
+| Rania | `rania` |
+| Zeinab | `zeinab` |
+| Mariam | `mariam` |
+| Fatma | `fatma` |
 
-**The mobile numbers are placeholders.** Change them in `lib/seed-content.ts` before the first run, or in `storage/db.json` afterwards (then restart).
+Each person also enters her own mobile number. The numbers live in `lib/seed-content.ts` (used when a fresh database is created) and in `storage/db.json` (the running database). Change both if a number changes.
 
 Other commands:
 
@@ -59,6 +59,26 @@ Other commands:
   - Add vocabulary and expressions, or reuse an entry from another session, so one entry can belong to several sessions.
 
 **Arabic / RTL:** the العربية / English button switches interface text and the whole layout direction. Lesson content stays in English.
+
+## Smart Session Import (Rabeha)
+
+**Teacher's Desk → 📦 Smart Session Import.** Upload a course document (.docx, .pdf or .txt), choose the default level, and the library will:
+
+1. **Extract** the document in order: levels, `• Session N` blocks, lesson titles, task headings (`Task 1 —`, `🗣️ Task 1: Speaking`, `1. My Office Drawer`…), questions, challenges, "use these" lists, reading passages and every link. Template lines (the repeated "Session content / Speaking || Reading" block) are listed as skipped, with the reason.
+2. **Classify** each task by what the student actually has to *do* (record → Speaking, write N words → Writing, read the text → Reading, listen/watch → Listening). The result is one **primary skill**, **secondary tags** (Grammar, Vocabulary, Idioms, Phrasal Verbs, Collocations, Phonics, Games…) and a **suggested submission type** (Audio, Text, Image or File, or a mix). Every decision records its reason.
+3. **Flag instead of guessing.** Weak or mixed signals, teacher-facing classroom games, missing titles and links whose purpose isn't stated are marked ⚠/○. Links are **never** auto-labelled as Listening: they stay "General session material" until Rabeha assigns them.
+4. **Preview & edit.** Rabeha can rename sessions and tasks, edit text, change skills, toggle tags and submission types, move or reorder tasks, link resources to a skill or task, delete duplicates, and confirm or mark items for review. **Publishing is blocked** until every flag is resolved.
+5. **Publish.** This creates levels, sessions, tasks, resources and expressions. Content already in the library is matched and linked instead of duplicated (for example, *Level 2 · Session 1* in `Level 1.docx` is the existing singer session). Uploading the exact same file again is blocked. The original file is kept as the import's source attachment.
+
+No AI is used. The parser lives in `lib/import/parse.ts` (deterministic rules), so it works offline and costs nothing. Expressions are imported **without meanings** because the document doesn't give any; Rabeha can add meanings in the vault.
+
+**Organize My Content.** In the session editor, paste a WhatsApp message. The same parser proposes separate tasks in the same editable preview, and you then add them to that session.
+
+**Students** see each session as four skill "doors" (Speaking, Listening, Reading, Writing) plus *More to explore* (Vocabulary, Grammar, Idioms, Phrasal Verbs, Collocations, Phonics, Games & Videos, Extra & general). Each has its own link (`?tab=listening`). Empty skills say so instead of showing made-up tasks. Each task page splits the task into readable parts (situation, questions, useful language, challenge…), keeps the original wording underneath, and opens the workspace that matches its submission type.
+
+### Data upgrade
+
+On first start, the app migrates `storage/db.json` from schema 1 to 2 (levels, task tags/parts/submission types, resource links, import records) and writes a backup to `storage/db.json.v1.bak`. Nothing is removed: submissions, drafts, feedback and rewards are untouched. Existing sessions are put in Level 1. When you then import `Level 1.docx`, the singer session is recognised and moved to Level 2 · Session 1.
 
 ## Reward rule
 
@@ -114,4 +134,3 @@ storage/             db.json + uploads/ (created at runtime, git-ignored)
 2. **Files:** swap the two functions in `app/api/files/*` for S3 / Cloudflare R2 / Supabase Storage. `FileAsset.storageKey` already holds the object key.
 3. **Authentication:** replace `getCurrentUser()` in `lib/auth.ts` with a real session (NextAuth/Auth.js, Clerk or Supabase Auth, with phone OTP if you want to keep "mobile number" as the identity). Every role check already goes through `requireApiUser` / `requirePageUser`, so nothing else changes.
 4. **Hosting:** any Node host with HTTPS (Vercel + Postgres + R2, Railway, Render, a VPS behind Caddy). HTTPS also unlocks microphone recording on phones.
-"# TEL" 
