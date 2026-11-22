@@ -38,7 +38,7 @@ async function pg(): Promise<PgPool> {
   if (!g.__elPool) {
     const { Pool } = await import("pg");
     const local = /localhost|127\.0\.0\.1/.test(PG_URL);
-    g.__elPool = new Pool({ connectionString: PG_URL, max: 3, ssl: local ? false : { rejectUnauthorized: false } });
+    g.__elPool = new Pool({ connectionString: PG_URL.replace(/([?&])sslmode=require/, "$1sslmode=verify-full"), max: 3, ssl: local ? false : { rejectUnauthorized: false } });
   }
   g.__elReady ??= g.__elPool.query(`CREATE TABLE IF NOT EXISTS app_state (id int PRIMARY KEY, doc jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`).then(() => undefined);
   await g.__elReady;
