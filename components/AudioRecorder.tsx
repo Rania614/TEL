@@ -86,7 +86,7 @@ export function AudioRecorder({ onSave, saving, compact }: { onSave: (b: Blob, n
       const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       stream.current = s;
       const mime = pickMime();
-      const r = new MediaRecorder(s, mime ? { mimeType: mime } : undefined);
+      const r = new MediaRecorder(s, { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: 32000 });
       chunks.current = [];
       r.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
       r.onstop = () => {

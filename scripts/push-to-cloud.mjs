@@ -68,7 +68,7 @@ for (const f of db.files ?? []) {
   if (String(f.storageKey).startsWith("blob:")) continue;
   const p = path.join("storage", "uploads", f.storageKey);
   if (!existsSync(p)) { missing++; console.warn(`  ! missing file: ${f.originalName}`); continue; }
-  const r = await put(`uploads/${f.storageKey}`, readFileSync(p), { access: "public", contentType: f.mime, addRandomSuffix: true, token: blobToken });
+  const r = await put(`uploads/${f.storageKey}`, readFileSync(p), { access: process.env.BLOB_ACCESS === "public" ? "public" : "private", contentType: f.mime, addRandomSuffix: true, token: blobToken });
   f.storageKey = `blob:${r.url}`;
   moved++;
   process.stdout.write(`  ⇪ ${f.originalName}\n`);

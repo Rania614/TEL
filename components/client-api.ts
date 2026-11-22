@@ -12,18 +12,22 @@ export async function api<T = unknown>(url: string, method = "GET", body?: unkno
   return data as T;
 }
 
-let directMode: Promise<boolean> | null = null;
-const isDirect = () => (directMode ??= fetch("/api/files/config").then((r) => r.json()).then((j) => !!j.direct).catch(() => false));
+type UploadConfig = { direct: boolean; access: "public" | "private" };
+let uploadConfig: Promise<UploadConfig> | null = null;
+const getConfig = () => (uploadConfig ??= fetch("/api/files/config").then((r) => r.json())
+  .then((j) => ({ direct: !!j.direct, access: j.access === "public" ? "public" : "private" } as UploadConfig))
+  .catch(() => ({ direct: false, access: "private" } as UploadConfig)));
 
 export async function uploadFile(file: Blob, name: string): Promise<FileAsset> {
   const mime = (file.type || "application/octet-stream").split(";")[0];
-  if (await isDirect()) {
+  const cfg = await getConfig();
+  if (cfg.direct) {
     // Cloud (Vercel): send the bytes straight to Vercel Blob, then register the metadata.
     const { upload } = await import("@vercel/blob/client");
     const safe = name.replace(/[^\w.\-]+/g, "_").slice(-80) || "upload";
     let blob: { url: string };
     try {
-      blob = await upload(`uploads/${safe}`, file, { access: "public", handleUploadUrl: "/api/files/upload-token", contentType: mime, clientPayload: JSON.stringify({ mime }) });
+      blob = await upload(`uploads/${safe}`, file, { access: cfg.access, handleUploadUrl: "/api/files/upload-token", contentType: mime, clientPayload: JSON.stringify({ mime }) });
     } catch (e) {
       throw new Error((e as Error).message?.replace(/^Vercel Blob: /, "") || "Upload failed");
     }
