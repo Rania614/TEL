@@ -1,5 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { handle, HttpError, requireApiUser } from "@/lib/auth";
+import { blobToken } from "@/lib/files";
 import { MAX_BYTES, STUDENT_TYPES, TEACHER_TYPES } from "@/lib/upload-rules";
 
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ const TEACHER_LIST = [...STUDENT_LIST, "image/gif", "text/plain", "application/m
 export const POST = handle(async (req: Request) => {
   const body = (await req.json()) as HandleUploadBody;
   const json = await handleUpload({
-    body, request: req,
+    body, request: req, token: blobToken(),
     onBeforeGenerateToken: async (_pathname, clientPayload) => {
       const user = await requireApiUser();
       const mime = (JSON.parse(clientPayload || "{}") as { mime?: string }).mime ?? "";

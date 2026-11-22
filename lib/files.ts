@@ -9,7 +9,12 @@ import { UPLOAD_DIR } from "./store";
  *   The URL has a random suffix and is only handed out by /api/files/[id] after the access check.
  * - Local / any server with a disk: storage/uploads/<key>.
  */
-export const blobEnabled = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+/** The read-write token, only if it is a real one (not Vercel's "[SENSITIVE]" placeholder). */
+export const blobToken = () => {
+  const t = process.env.BLOB_READ_WRITE_TOKEN || "";
+  return t.startsWith("vercel_blob_rw_") ? t : "";
+};
+export const blobEnabled = () => !!blobToken();
 export const blobUrlOf = (storageKey: string) => (storageKey.startsWith("blob:") ? storageKey.slice(5) : null);
 export const isOurBlobUrl = (url: string) => {
   try { const u = new URL(url); return u.protocol === "https:" && u.hostname.endsWith(".blob.vercel-storage.com"); } catch { return false; }
@@ -18,7 +23,7 @@ export const isOurBlobUrl = (url: string) => {
 export async function saveBytes(id: string, ext: string, buf: Buffer, mime: string): Promise<string> {
   if (blobEnabled()) {
     const { put } = await import("@vercel/blob");
-    const r = await put(`uploads/${id}${ext}`, buf, { access: "public", contentType: mime, addRandomSuffix: true });
+    const r = await put(`uploads/${id}${ext}`, buf, { access: "public", contentType: mime, addRandomSuffix: true, token: blobToken() });
     return `blob:${r.url}`;
   }
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
