@@ -142,12 +142,11 @@ How it works:
 - Uploads go straight from the browser to Blob, because Vercel functions reject request bodies over 4.5 MB. `/api/files/[id]` checks permissions, then redirects to the file's unguessable Blob URL. Blob URLs are "public but unlisted": anyone who is given the exact link can open it.
 - Smart Import uploads the course document through the app itself, so the document must be under ~4 MB (Level 1.docx is 39 KB).
 - Recording with the microphone works on phones because Vercel serves HTTPS.
-```
-## Known limitations (be honest with the class)
 
-1. **Demo access is not authentication.** Anyone who knows a username and mobile number can enter as that person. Don't put anything private in the app, and don't expose it to the public internet as-is.
-2. **Recording on phones needs HTTPS** (automatic on Vercel). Browsers only allow the microphone on `https://` or `localhost`. A phone opening `http://192.168.x.x:3000` will get a clear message and can still **upload** a voice-memo file. To record in-browser on phones, deploy behind HTTPS (see below) or use a tunnel such as Cloudflare Tunnel.
-3. Built for one class on one server. The JSON store is fine for 5 people. It is not designed for hundreds of concurrent writers.
+# Known limitations (be honest with the class)
+
+#1. **Demo access is not authentication.** Anyone who knows a username and mobile number can enter as that person. Don't put anything private in the app, and don't expose it to the #public internet as-is.
+#2. **Recording on phones needs HTTPS** (automatic on Vercel). Browsers only allow the microphone on `https://` or `localhost`. A phone opening `http://192.168.x.x:3000` will get a clear #3. Built for one class on one server. The JSON store is fine for 5 people. It is not designed for hundreds of concurrent writers.
 4. No push notifications: the feedback badge updates when the student opens or refreshes the app.
 5. YouTube titles are placeholders ("Session 1 — Video 1/2"). Rabeha can rename them in the session editor.
 
