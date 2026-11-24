@@ -142,7 +142,7 @@ How it works:
 - Uploads go straight from the browser to Blob, because Vercel functions reject request bodies over 4.5 MB. `/api/files/[id]` checks permissions, then redirects to the file's unguessable Blob URL. Blob URLs are "public but unlisted": anyone who is given the exact link can open it.
 - Smart Import uploads the course document through the app itself, so the document must be under ~4 MB (Level 1.docx is 39 KB).
 - Recording with the microphone works on phones because Vercel serves HTTPS.
-
+```
 ## Known limitations (be honest with the class)
 
 1. **Demo access is not authentication.** Anyone who knows a username and mobile number can enter as that person. Don't put anything private in the app, and don't expose it to the public internet as-is.
@@ -157,3 +157,4 @@ How it works:
 2. **Files:** swap the two functions in `app/api/files/*` for S3 / Cloudflare R2 / Supabase Storage. `FileAsset.storageKey` already holds the object key.
 3. **Authentication:** replace `getCurrentUser()` in `lib/auth.ts` with a real session (NextAuth/Auth.js, Clerk or Supabase Auth, with phone OTP if you want to keep "mobile number" as the identity). Every role check already goes through `requireApiUser` / `requirePageUser`, so nothing else changes.
 4. **Hosting:** any Node host with HTTPS (Vercel + Postgres + R2, Railway, Render, a VPS behind Caddy). HTTPS also unlocks microphone recording on phones.
+```
