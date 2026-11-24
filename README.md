@@ -143,17 +143,3 @@ How it works:
 - Smart Import uploads the course document through the app itself, so the document must be under ~4 MB (Level 1.docx is 39 KB).
 - Recording with the microphone works on phones because Vercel serves HTTPS.
 
-# Known limitations (be honest with the class)
-
-#1. **Demo access is not authentication.** Anyone who knows a username and mobile number can enter as that person. Don't put anything private in the app, and don't expose it to the #public internet as-is.
-#2. **Recording on phones needs HTTPS** (automatic on Vercel). Browsers only allow the microphone on `https://` or `localhost`. A phone opening `http://192.168.x.x:3000` will get a clear #3. Built for one class on one server. The JSON store is fine for 5 people. It is not designed for hundreds of concurrent writers.
-4. No push notifications: the feedback badge updates when the student opens or refreshes the app.
-5. YouTube titles are placeholders ("Session 1 — Video 1/2"). Rabeha can rename them in the session editor.
-
-## Going to a shared, multi-device deployment
-
-1. **Database:** copy `docs/target-schema.prisma` into `prisma/schema.prisma` and point it at PostgreSQL (Neon, Supabase or Railway). Replace the `read()` / `mutate()` calls with Prisma queries. They're all in `app/api/**` and the page files, and `lib/types.ts` already matches the models. Import `storage/db.json` with a one-off script.
-2. **Files:** swap the two functions in `app/api/files/*` for S3 / Cloudflare R2 / Supabase Storage. `FileAsset.storageKey` already holds the object key.
-3. **Authentication:** replace `getCurrentUser()` in `lib/auth.ts` with a real session (NextAuth/Auth.js, Clerk or Supabase Auth, with phone OTP if you want to keep "mobile number" as the identity). Every role check already goes through `requireApiUser` / `requirePageUser`, so nothing else changes.
-4. **Hosting:** any Node host with HTTPS (Vercel + Postgres + R2, Railway, Render, a VPS behind Caddy). HTTPS also unlocks microphone recording on phones.
-```
